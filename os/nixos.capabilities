@@ -1,0 +1,58 @@
+# os/nixos.capabilities — the NixOS capability declaration (Core v5, #663).
+#
+# ┌──────────────────────────────────────────────────────────────────────────┐
+# │ REPLACE EVERY VALUE BELOW. They are FEDORA's (dnf), copied so this file   │
+# │ satisfies the schema from birth — they are NOT defaults and nothing in    │
+# │ Core falls back to them. On any other archive they are simply wrong.      │
+# └──────────────────────────────────────────────────────────────────────────┘
+#
+# Read (never sourced) by Core's zsh/02-capabilities.zsh into $_CORE_CAP, and by
+# core/maint/dotfiles-maint.sh, which is bash. bootstrap.sh links it to
+# $ZDOTDIR/os.capabilities.
+#
+# core/PORTING-MATRIX.md §"Package-manager commands" tabulates all seven archives and
+# is the transcription source. core/examples/os.capabilities.example documents every
+# key, including the OPTIONAL ones this stub deliberately omits — in this schema an
+# omission is a STATEMENT (no PKG_ASSUME_YES = never auto-confirm; no
+# PKG_UPGRADE_PARTIAL = `up -i` refuses; no MAINT_UNATTENDED_UPGRADE = refuse), so
+# read that file before adding one.
+#
+# Validate with:  core/scripts/check-capabilities.sh os/nixos.capabilities
+#
+# A `#` INSIDE A VALUE IS NOT A COMMENT — the reader keeps it. Notes go above.
+
+# ── package-manager verbs (all required) ──────────────────────────────────────
+PKG_REFRESH=sudo dnf check-update
+# The INTERACTIVE upgrade verb — no auto-confirm flag here; that is PKG_ASSUME_YES.
+PKG_UPGRADE=sudo dnf upgrade --refresh
+PKG_INSTALL=sudo dnf install -y
+PKG_REMOVE=sudo dnf remove -y
+PKG_SEARCH=dnf search
+PKG_OWNS=dnf provides
+# What `up`'s once-a-day "N updates available" nudge counts, and the verb that
+# diverges most across archives. Non-root and non-mutating, always.
+PKG_COUNT_PENDING=dnf -q --refresh check-update
+
+# ── scheduler (required) ──────────────────────────────────────────────────────
+# systemd | launchd | cron | none. `cron` is what an OpenRC box gets; `none` is a
+# real answer (a container) and tells the maint layer to offer the manual verb
+# rather than claim a timer it cannot install.
+SCHEDULER=systemd
+# REQUIRED for systemd and launchd; cron and none take NONE. A DIRECTORY, not a full
+# path — Core appends its own unit name. An OS-absolute path is CORRECT here and
+# wrong in Core, which is this key's whole point.
+SCHEDULER_UNIT_DIR=~/.config/systemd/user
+
+# ── optional — the STAGED host (core/NON-MUTABLE-HOST-PROPOSAL.md §4, Core v7.6.0) ────
+# Leave these commented on a mutable host. On an atomic (bootc, Silverblue) or
+# transactional (MicroOS, Aeon) edition PKG_INSTALL / PKG_UPGRADE return with the
+# change STAGED and a reboot makes it live: `up`, the shell-start nudge, the maint
+# runner and core-doctor read these three and PRINT PKG_APPLY, never run it. A
+# declarative host (NixOS) declares PROVISIONER=declarative alone — nothing stages
+# there. PKG_APPLY_PENDING (+ _EXIT) is the "is a change waiting?" probe, answered by
+# exit status (bootc: `rpm-ostree status --pending-exit-77` / 77; MicroOS:
+# `test -e /run/reboot-needed`); declaring it lets PKG_COUNT_PENDING be absent.
+#PROVISIONER=atomic
+#PKG_APPLY=sudo systemctl reboot
+#PKG_APPLY_PENDING=rpm-ostree status --pending-exit-77
+#PKG_APPLY_PENDING_EXIT=77
