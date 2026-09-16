@@ -1,0 +1,18 @@
+# .github/core-gates.txt — how this repo satisfies dotfiles-core's reusable gates.
+#
+# ONE LINE PER GATE THIS REPO DOES NOT CALL. Anything that calls the reusable workflow is
+# derived from its own `uses:` line and needs no entry here (dotgibson/dotfiles-core#607).
+#
+#   <gate> own  <how it is satisfied here>
+#   <gate> none <why this repo does not need it>
+#
+# The value is entirely in these lines: without them a rollout audit cannot tell
+# "not covered" from "covered elsewhere".
+#
+# Derived, and therefore absent from this file: lint-call (lint.yml), auto-tag-call
+# (auto-tag.yml), bootstrap-test (bootstrap.yml), core-integrity-call
+# (core-integrity.yml), notify-web-call (notify-web.yml), and real-bootstrap — which is a
+# SWEEP derived from the bootstrap-test caller, and reads `sweep` here because that caller
+# declares no `provisioner:`.
+
+claude-routines-call none the reusable routine is /os-package-availability over install/packages.txt, and this repo has none — nix/home.nix declares the package set as nixpkgs attributes, which is the boundary this repo exists to hold (dotgibson/dotfiles-core NON-MUTABLE-HOST-PROPOSAL.md §4.3). Its `distro:` input is also a seven-name allowlist (claude-routines-call.yml) that rejects `nixos`, so a caller here would exit 2 on every cron.

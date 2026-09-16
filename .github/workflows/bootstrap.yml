@@ -1,0 +1,70 @@
+# .github/workflows/bootstrap.yml
+# Thin caller for the reusable bootstrap test authored in dotfiles-core. The logic lives
+# there (one place for the whole fleet); this just names NixOS's container + the deps
+# bootstrap needs. See dotfiles-core/.github/workflows/bootstrap-test.yml.
+name: bootstrap
+
+# NO path filters, deliberately — `test / lint` and `test / links-only` are REQUIRED
+# status checks on main. A filtered-out required check never reports, so GitHub blocks the
+# PR indefinitely waiting for a result that will never arrive. See the same note in
+# lint.yml. The links-only run is a couple of minutes; the deadlock is forever.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# NO `schedule:` — and that is a deliberate break from every sibling caller, not an
+# omission. Each of theirs carries the same comment: the cron exists "for packages-check
+# ONLY, and it is the reason that job is worth having", because a package rename upstream
+# breaks a repo's list with nobody having edited the repo. THIS repo has no
+# install/packages.txt and no packages_check (see below), so a cron here would be a copied
+# ritual with a false rationale. Image drift is already swept weekly by dotfiles-core's
+# real-bootstrap.yml, which derives its leg from this caller's image + prep.
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: dotgibson/dotfiles-core/.github/workflows/bootstrap-test.yml@v7
+    with:
+      # The nix container is a nix INSTALL on another distro — not NixOS. It has no
+      # /etc/NIXOS and no nixos-rebuild, so bootstrap_check() reports that and carries on;
+      # this repo deliberately ships no bootstrap_guard for exactly that reason. The
+      # wiring under test is pure shell and is correct on any box.
+      image: nixos/nix:latest
+      # The minimal image ships almost nothing. This set is what the reusable's legs
+      # actually use: bash (bootstrap's shebang), zsh (the `zsh -n` leg and the
+      # login-shell lookup), git (the links-only job's `git hash-object` mise-adopt
+      # assertion), gawk (bootstrap_closing's /etc/passwd fallback), and the
+      # grep/sed/find/coreutils the link and stat checks run through.
+      #
+      # NO `|| true` here, unlike the research harness this set was measured with
+      # (dotfiles-core scripts/research). There it was a probe and a missing tool was a
+      # finding; here a swallowed failure would both stop the reusable's retry loop from
+      # ever firing AND make a genuinely broken prep read green.
+      prep: nix-channel --update && nix-env -iA nixpkgs.bash nixpkgs.zsh nixpkgs.git nixpkgs.gawk nixpkgs.gnugrep nixpkgs.gnused nixpkgs.findutils nixpkgs.coreutils
+      # Run the non---links-only path for real, with package managers and downloaders
+      # replaced by logging no-ops. This repo has no bootstrap_provision hook — nix/ owns
+      # packages — so what this leg actually covers is bootstrap_check(), the full-run
+      # ordering, and bootstrap_closing() under a real run. Nothing is installed, and the
+      # shim set carries no nix-env/nixos-rebuild because this repo calls neither.
+      provision_stub: true
+      # No provisioning to do, so prep + links is the whole run; the 45-minute default is
+      # for repos that build cargo tools.
+      bootstrap_timeout: 20
+      # NO `packages_check:` (the default "" disables that job), for two reasons.
+      # (1) There is no install/packages.txt to resolve — nix/home.nix owns the package
+      #     set as nixpkgs attributes, which is the boundary this repo exists to hold.
+      # (2) No per-name resolver fits the caller's `<cmd> <name>` shape anyway:
+      #     `nix eval nixpkgs#<name>` needs flakes, network and ~seconds per name
+      #     (measured, dotfiles-core NON-MUTABLE-HOST-PROPOSAL.md §5 R6).
+      #
+      # NO `provisioner:` either, and BOTH reasons matter:
+      # (1) The reusable validates that input as ""|atomic|transactional and REJECTS
+      #     `declarative` outright — setting it fails the leg. Nothing stages on this
+      #     host; `nixos-rebuild switch` activates in place.
+      # (2) Leaving it empty is also what makes dotfiles-core's fleet-coverage.sh derive a
+      #     real `sweep` cell for the real-bootstrap gate, instead of this repo having to
+      #     declare `real-bootstrap none` in .github/core-gates.txt.
