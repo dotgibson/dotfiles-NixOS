@@ -1,0 +1,272 @@
+# core/zsh/35-fzf.zsh
+# fzf config + custom zle widgets. Promoted from the Mac; portable across boxes
+# (needs fzf + fd + bat + eza; all in the Core stack). The zle widgets defined
+# here are bound to keys in 40-bindings.zsh, so load this BEFORE bindings/plugins.
+
+# =========================================================
+# fzf core
+# =========================================================
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --strip-cwd-prefix --exclude .git'
+
+# Layout: hand-authored. Nothing here is a colour, so the generator does not own
+# it — see the palette half below.
+export FZF_DEFAULT_OPTS='
+  --height=60%
+  --layout=reverse
+  --border=rounded
+  --prompt="❯  "
+  --pointer="➔ "
+  --preview-window=right:65%:wrap:border-left'
+
+# --color is an EXPLICIT palette (not the terminal default), so fzf stays
+# on-theme when we SSH into an unthemed box or run under a terminal whose palette
+# isn't tokyonight. GENERATED from theme/palette.toml — `make gen-theme`.
+#
+# Appended rather than embedded because a `# core:theme:gen` line INSIDE the
+# single-quoted string above is an argument fzf rejects, not a comment.
+#
+# PARITY: `--color=query:<fg>:regular` is load-bearing for a cross-repo gate —
+# scripts/parity-check.sh greps that token here AND in dotfiles-Windows'
+# powershell/core/10-tools.ps1, which is hand-maintained. A style change is a
+# two-repo change; parity-check.sh will name the hex pwsh is missing.
+# core:theme:gen fzf-colors
+FZF_DEFAULT_OPTS="$FZF_DEFAULT_OPTS
+  --color=border:#29a4bd
+  --color=fg:#c0caf5
+  --color=gutter:#1d202f
+  --color=header:#ff9e64
+  --color=hl:#2ac3de
+  --color=hl+:#2ac3de
+  --color=info:#545c7e
+  --color=marker:#ff007c
+  --color=pointer:#ff007c
+  --color=prompt:#2ac3de
+  --color=query:#c0caf5:regular
+  --color=scrollbar:#29a4bd
+  --color=separator:#ff9e64
+  --color=spinner:#ff007c"
+# core:theme:end fzf-colors
+
+# Previews run in a subshell with the literal command string baked in, so the binary
+# name must be RESOLVED here — not assumed. 00-tools.zsh (loaded before this file) sets
+# $BAT_BIN to the real name (Debian/Ubuntu ship bat as `batcat`); using a literal
+# `bat` printed "command not found" in every preview pane on those distros. Fall back
+# to cat/ls on a bare box so the pane shows the file/dir instead of an error.
+if [[ -n ${BAT_BIN:-} ]]; then
+  export _FZF_PREVIEW_CMD="$BAT_BIN --color=always --style=plain,numbers --line-range=:500 {}"
+  # fzf-tab does NOT substitute fzf's `{}` placeholder — it appends $realpath itself.
+  # So it needs the SAME previewer WITHOUT the trailing `{}`; reusing $_FZF_PREVIEW_CMD
+  # there leaked a literal `{}` arg into bat (a phantom "No such file", swallowed by
+  # 2>/dev/null — and a wrong preview if a file named `{}` existed). Keep the two forms
+  # distinct: `{}` for fzf proper, placeholder-free for fzf-tab (45-plugins.zsh appends it).
+  export _FZF_TAB_PREVIEW_CMD="$BAT_BIN --color=always --style=plain,numbers --line-range=:500"
+else
+  export _FZF_PREVIEW_CMD='cat {}'
+  export _FZF_TAB_PREVIEW_CMD='cat'
+fi
+# Dir preview: eza when present, classic `ls` otherwise (eza has no rename quirk — the
+# only failure mode is absence, so a fallback is all it needs).
+if [[ -n ${HAVE_EZA:-} ]]; then
+  export _FZF_DIR_PREVIEW='eza --icons=always --tree --level=1 {}'
+else
+  export _FZF_DIR_PREVIEW='ls -la {}'
+fi
+
+# =========================================================
+# Widget: Ctrl+T — file picker (no hidden files)
+# =========================================================
+_fzf_file_no_hidden() {
+  local result
+  # Bound unconditionally in 40-bindings.zsh (Ctrl-T), so guard here: on a box without
+  # fzf/fd, warn in Core's voice and repaint the prompt instead of running an empty
+  # "$FD_BIN" (unset on a bare box) piped into a missing fzf ("command not found").
+  # Mirrors the Alt-Z (_fzf_zoxide_jump) guard below.
+  if ! _core_have fzf || [[ -z ${FD_BIN:-} ]]; then
+    _core_warn "Ctrl-T: needs fzf + fd"
+    zle reset-prompt
+    return 1
+  fi
+  result=$("$FD_BIN" --type f --strip-cwd-prefix --exclude .git | fzf --preview "$_FZF_PREVIEW_CMD") &&
+    LBUFFER+="$result"
+  zle reset-prompt
+}
+
+zle -N _fzf_file_no_hidden
+
+# =========================================================
+# Widget: Alt+Z — zoxide project jumper
+# =========================================================
+_fzf_zoxide_jump() {
+  local result
+  # Bound unconditionally in 40-bindings.zsh, so guard here: on a box without zoxide/fzf,
+  # warn in Core's voice and repaint the prompt rather than spewing "command not found".
+  if ! _core_have zoxide || ! _core_have fzf; then
+    _core_warn "Alt-Z: needs zoxide + fzf"
+    zle reset-prompt
+    return 1
+  fi
+  result=$(zoxide query -l | fzf \
+    --no-sort \
+    --prompt="Jump to Folder ❯ " \
+    --preview="$_FZF_DIR_PREVIEW")
+  if [[ -n "$result" ]]; then
+    cd "$result" || return
+  fi
+  zle reset-prompt
+}
+zle -N _fzf_zoxide_jump
+
+# =========================================================
+# Widget: Alt+C — cd into a SUBDIRECTORY of the current one
+# =========================================================
+# NOT a second key for Alt+Z, and the distinction is the whole reason this exists (#808).
+# Alt+Z is a FRECENCY jump to anywhere zoxide has already seen; Alt+C is scoped to below
+# $PWD and finds directories zoxide has never visited. Different intents, and an operator
+# arriving from stock fzf or PSFzf expects the latter on this key.
+#
+# PARITY.md advertised Alt+C as `aligned` for years while NEITHER shell bound it — zsh has
+# never bound ^[c and never sources fzf's own key-bindings, so the FZF_ALT_C_* exports that
+# would have configured fzf's stock widget were dead config and were deleted in v6.0.0.
+# #682 removed the false claim; this implements it for real.
+#
+# The picking is fcd's (30-functions.zsh) — this widget is the key, not a second copy of
+# the function. Its first cut re-implemented fd|fzf inline and the copy drifted in two ways
+# nobody chose: no --hidden, so Alt+C could not reach .config/.github/.claude while `fcd`
+# could, and no find fallback (#933). Delegating is what makes "cd into a subdirectory" mean
+# one thing on both entry points; the --hidden/--exclude .git reasoning lives with fcd now.
+#
+# THE KEY COLLIDES WITH vi's CHANGE OPERATOR, and that is accepted, not overlooked. In
+# viins `^[` is vi-cmd-mode and `c` is vicmd's `vi-change`, and a terminal sends Alt+C as
+# exactly those two bytes — so after Esc, zsh has to wait to learn whether a `c` is part of
+# this chord or the start of `cw`/`ciw`. Core loads zsh-vi-mode, whose NEX readkey engine
+# owns that wait: ZVM_ESCAPE_KEYTIMEOUT, default 0.03s, NOT the 0.4s ZVM_KEYTIMEOUT that
+# governs ordinary multi-key sequences. A terminal's Alt+C lands well inside 30ms; a human
+# typing Esc then `c` almost never does. Alt+Z has no such problem (`z` is not a vicmd
+# verb), and the parity row that justifies this key — PSFzf's Alt+c — has none either,
+# since PSReadLine is not in vi mode. Moving to a Ctrl chord would close the window and
+# break the parity that is the reason the binding exists; the window is kept.
+_fzf_cd_dir() {
+  # Bound unconditionally in 40-bindings.zsh, so guard here — the same shape as the two
+  # widgets above, in Core's voice, rather than fcd's error for a key press. Only fzf is
+  # required: fd's absence is fcd's find fallback, not a refusal.
+  if ! _core_have fzf; then
+    _core_warn "Alt-C: needs fzf"
+    zle reset-prompt
+    return 1
+  fi
+  fcd
+  zle reset-prompt
+}
+
+zle -N _fzf_cd_dir
+
+# =========================================================
+# Widget: Ctrl+R — custom history searcher
+# =========================================================
+_fzf_history_clean() {
+  local result
+  # Bound unconditionally in 40-bindings.zsh (Ctrl-R), so guard here: on a box without
+  # fzf, warn in Core's voice and repaint rather than spewing "command not found"
+  # from the missing fzf. Mirrors the Alt-Z (_fzf_zoxide_jump) guard above.
+  if ! _core_have fzf; then
+    _core_warn "Ctrl-R: needs fzf"
+    zle reset-prompt
+    return 1
+  fi
+  result=$(fc -rl 1 | awk '{$1=""; print substr($0,2)}' |
+    fzf --prompt="History ❯ " --query="$LBUFFER")
+  if [[ -n "$result" ]]; then
+    LBUFFER="$result"
+  fi
+  zle reset-prompt
+}
+zle -N _fzf_history_clean
+
+# =========================================================
+# Widget: Ctrl+G — session picker (sesh, with graceful fallback)
+# 2026 refresh: was a hand-rolled find+fzf sessionizer; now drives sesh directly.
+# sesh is zoxide-aware and names sessions from the git repo; when it is ABSENT this
+# delegates to tmux-sesh.sh, which falls back to the old find+fzf behaviour.
+#
+# NB: shell and tmux do NOT share one picker, though this comment used to say so.
+# The sesh-present path below is its own inline copy — tmux-sesh.sh's richer picker
+# (--height 100%, a border label, and ctrl-a/t/g/d mode-switch reloads) is reached
+# only on the fallback. Keep the two in step by hand, or make the widget shell out
+# to the script unconditionally; see .claude/tool-decisions.md's `sesh picker` row,
+# which is where the option of replacing both with sesh's own TUI is recorded.
+# =========================================================
+_tmux_sessionizer() {
+  local picker="$HOME/.config/tmux/scripts/tmux-sesh.sh"
+  if command -v sesh >/dev/null 2>&1; then
+    local selected
+    # --ansi: `sesh list --icons` color-codes its icons with ANSI escapes (blue for
+    # sessions/tmux, cyan for zoxide dirs). Without --ansi fzf prints those escapes
+    # literally ("[34m…[39m") instead of colouring the glyph. Mirrors tmux-sesh.sh.
+    selected=$(sesh list --icons | fzf --ansi --reverse --prompt='⚡  ' --preview 'sesh preview {}')
+    [[ -z "$selected" ]] && {
+      zle reset-prompt
+      return
+    }
+    if [[ -n "$TMUX" ]]; then
+      sesh connect "$selected"
+    else
+      BUFFER="sesh connect \"$selected\""
+      zle accept-line
+    fi
+  elif [[ -x "$picker" ]]; then
+    "$picker"
+  fi
+  zle reset-prompt
+}
+zle -N _tmux_sessionizer
+
+# =========================================================
+# Global utility: fif — find text inside files
+# =========================================================
+fif() {
+  _core_wants_help "$1" && { _core_help "fif <search_term>" "find text inside files (rg + fzf + preview)"; return 0; }
+  [[ -z "$1" ]] && { _core_usage "fif <search_term>"; return 1; }
+  # Defensive: degrade in Core's voice on a bare box instead of a raw "command not
+  # found" — matches fcd's guard (30-functions.zsh).
+  _core_have fzf || { _core_err "fif: requires fzf"; _core_hint "install fzf, then retry"; return 1; }
+  _core_have rg  || { _core_err "fif: requires ripgrep (rg)"; _core_hint "install ripgrep, then retry"; return 1; }
+  # Preview the first match with $BAT_BIN's line highlight when bat is present; fall
+  # back to a plain `cat` pane on a bare box (the highlight-line flag is bat-specific).
+  local fif_preview
+  if [[ -n ${BAT_BIN:-} ]]; then
+    fif_preview="$BAT_BIN --style=numbers --color=always --highlight-line \$(rg --line-number --no-messages \"\$FIF_TERM\" {} | cut -d: -f1 | head -n 1) {}"
+  else
+    fif_preview='cat {}'
+  fi
+  FIF_TERM="$1" rg --files-with-matches --no-messages "$1" | fzf \
+    --height 80% --layout=reverse --border=rounded \
+    --prompt="Text Match ❯ " \
+    --preview "$fif_preview" \
+    --preview-window="right:65%:wrap:border-left"
+}
+
+# =========================================================
+# Global utility: fbr — fuzzy git branch checkout
+# =========================================================
+fbr() {
+  _core_wants_help "$1" && { _core_help "fbr" "fuzzy git-branch checkout (local + remote)"; return 0; }
+  _core_have fzf || { _core_err "fbr: requires fzf"; _core_hint "install fzf, then retry"; return 1; }
+  _core_have git || { _core_err "fbr: requires git"; return 1; }
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || {
+    _core_err "fbr: not inside a git repository"
+    return 1
+  }
+  local branch
+  # List CLEAN branch names (no leading '* '/whitespace, no '<remote>/HEAD' alias) so the
+  # preview's {} is a real ref. The old form previewed `{1}`, which on the current-branch
+  # row ('* main') is the literal '*' — so `git log *` errored/blanked. On checkout, strip a
+  # leading 'origin/' so picking a remote-only branch creates the matching local tracking branch.
+  # NOTE: the strip is origin-ONLY on purpose — a universal `${branch#*/}` would mangle a
+  # slash-containing LOCAL name (feature/foo → foo). A non-origin remote pick (e.g.
+  # upstream/foo) is left as-is and `git checkout` resolves it as best it can — a rare
+  # multi-remote case not worth risking the common local-branch path for.
+  branch=$(git branch --all --format='%(refname:short)' 2>/dev/null |
+    grep -vE '/HEAD$' | sort -u |
+    fzf --preview 'git log --oneline --color=always {} | head -20') &&
+    [[ -n "$branch" ]] && git checkout "${branch#origin/}"
+}
