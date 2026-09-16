@@ -36,11 +36,27 @@ jobs:
   nix-parse:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    container: nixos/nix:latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The image is minimal: bash is what the script's shebang needs.
-      - run: nix-env -iA nixpkgs.bash
-      - run: ./test/check-nix.sh
+      - name: Parse nix/*.nix in a container that has nix
+        # `docker run` rather than a job-level `container:`, for the same two reasons
+        # dotfiles-core's bootstrap-test.yml gives:
+        #
+        #  1. actions/checkout is a JavaScript action and the runner mounts its own node
+        #     into the container. nixos/nix has no loader for it, so a job-level
+        #     `container: nixos/nix:latest` dies at checkout with
+        #     "exec /__e/node24/bin/node: no such file or directory" — measured, on this
+        #     repo's first push. Checking out on the host and mounting the tree sidesteps it.
+        #  2. Core's modern-baseline check requires every `container:`/`image:` value to be
+        #     digest-pinned; a bare tag in that position is a finding.
+        #
+        # Keep the script below apostrophe-free: it lives inside a single-quoted sh -euc
+        # argument.
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo nixos/nix:latest sh -euc '
+            nix-channel --update
+            nix-env -iA nixpkgs.bash
+            exec ./test/check-nix.sh
+          '

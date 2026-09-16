@@ -36,15 +36,26 @@ jobs:
       image: nixos/nix:latest
       # The minimal image ships almost nothing. This set is what the reusable's legs
       # actually use: bash (bootstrap's shebang), zsh (the `zsh -n` leg and the
-      # login-shell lookup), git (the links-only job's `git hash-object` mise-adopt
-      # assertion), gawk (bootstrap_closing's /etc/passwd fallback), and the
+      # login-shell lookup), gawk (bootstrap_closing's /etc/passwd fallback), and the
       # grep/sed/find/coreutils the link and stat checks run through.
       #
-      # NO `|| true` here, unlike the research harness this set was measured with
-      # (dotfiles-core scripts/research). There it was a probe and a missing tool was a
-      # finding; here a swallowed failure would both stop the reusable's retry loop from
-      # ever firing AND make a genuinely broken prep read green.
-      prep: nix-channel --update && nix-env -iA nixpkgs.bash nixpkgs.zsh nixpkgs.git nixpkgs.gawk nixpkgs.gnugrep nixpkgs.gnused nixpkgs.findutils nixpkgs.coreutils
+      # NO `nixpkgs.git`, and this is the one entry worth explaining. The image ALREADY
+      # ships git-minimal, and installing nixpkgs.git on top of it is a hard profile
+      # conflict, not a preference:
+      #
+      #   error: Unable to build profile. There is a conflict for the following files:
+      #     .../git-minimal-2.54.0/libexec/git-core/git-instaweb
+      #     .../git-2.55.0/libexec/git-core/git-instaweb
+      #
+      # git-minimal carries `git hash-object`, which is all the links-only job's mise-adopt
+      # assertion needs. dotfiles-core's research harness lists nixpkgs.git in its own
+      # nixos prep, but behind `|| true` — so it never installed git there either; the
+      # conflict was simply swallowed. Measured here on this repo's first push, where the
+      # absence of that `|| true` turned it into a red instead of a silent no-op.
+      #
+      # NO `|| true`, for that reason: it would stop the reusable's retry loop from ever
+      # firing AND make a genuinely broken prep read green.
+      prep: nix-channel --update && nix-env -iA nixpkgs.bash nixpkgs.zsh nixpkgs.gawk nixpkgs.gnugrep nixpkgs.gnused nixpkgs.findutils nixpkgs.coreutils
       # Run the non---links-only path for real, with package managers and downloaders
       # replaced by logging no-ops. This repo has no bootstrap_provision hook — nix/ owns
       # packages — so what this leg actually covers is bootstrap_check(), the full-run
