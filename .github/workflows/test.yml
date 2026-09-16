@@ -24,3 +24,23 @@ jobs:
         with:
           persist-credentials: false
       - run: make test
+
+  # THE ONLY PLACE nix/*.nix IS ACTUALLY PARSED. `make test` above runs check-nix.sh too,
+  # but ubuntu-latest has no nix, so there it skips — and a gate that only ever skips is
+  # not a gate. This job runs the same script in a container that has nix.
+  #
+  # Syntax only (`nix-instantiate --parse`): no channels, no network, no nixpkgs, no
+  # attribute resolution. A typo'd package name in home.packages still passes here — that
+  # needs a real `home-manager build`, which is documented in nix/README.md as an
+  # on-demand check rather than wired in as a gate.
+  nix-parse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container: nixos/nix:latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The image is minimal: bash is what the script's shebang needs.
+      - run: nix-env -iA nixpkgs.bash
+      - run: ./test/check-nix.sh

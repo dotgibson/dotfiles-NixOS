@@ -123,6 +123,7 @@ make-gate: ## Every Makefile guard shares a line with its tool, and skips/fails 
 
 check: lint ## lint + a hermetic links run against a throwaway HOME (test/check-links.sh)
 	@./test/check-links.sh
+	@./test/check-nix.sh
 
 dry-run: ## Preview every link bootstrap would create; change nothing
 	@./bootstrap.sh --dry-run
@@ -137,5 +138,10 @@ core-verify: ## Verify the vendored core/ is pristine vs core.lock (needs CORE_R
 	@[ -x "$(CORE_REPO)/scripts/core-integrity.sh" ] || { echo "need a dotfiles-core checkout at CORE_REPO=$(CORE_REPO)"; exit 1; }
 	@"$(CORE_REPO)/scripts/core-integrity.sh" --self "$(CURDIR)"
 
+# EXPLICIT PATHS, not a test/*.sh loop: the fleet's suite-detection register credits a
+# named script, and a glob would also silently pick up a scratch file. check-nix.sh skips
+# without nix (the normal case off a NixOS box) — the nix-parse job in
+# .github/workflows/test.yml is where the parse actually runs.
 test: ## Run this repo's own suite (test/)
 	@./test/check-links.sh
+	@./test/check-nix.sh
