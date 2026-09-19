@@ -16,5 +16,16 @@
   // MD024 (no-duplicate-heading): SIBLINGS ONLY. A Keep-a-Changelog CHANGELOG repeats
   // ### Added / ### Changed / ### Fixed under every release; a true duplicate under the
   // SAME parent still fires.
-  "MD024": { "siblings_only": true }
+  "MD024": { "siblings_only": true },
+
+  // MD033 (no-inline-html): SCOPED, not off. The README legitimately uses HTML
+  // the CommonMark spec can't express — the fleet's centered badge row and its
+  // back-to-top anchor. allowed_elements lists exactly the tags that design needs,
+  // so the rule still fires on ANYTHING else — the leaked-template-tag class of
+  // bug. Keep this list tight.
+  "MD033": {
+    "allowed_elements": [
+      "a", "br", "details", "div", "h3", "img", "li", "nobr", "ol", "p", "strong", "summary", "ul"
+    ]
+  }
 }
