@@ -4,9 +4,7 @@ The NixOS machine repo. Vendors [Core](https://github.com/dotgibson/dotfiles-cor
 `core/` and adds the NixOS-native layer — with one thing no other repo in this fleet has:
 a **second owner**.
 
-<!-- The hero gif is rendered by dotfiles-core's `make gen-hero-tape-fleet` and filmed on
-     a matching host; until then this repo has assets/demo.tape and no assets/demo.gif,
-     which the fleet's §9k/§9l gates treat as a skip rather than a failure. -->
+[![dotfiles-NixOS — terminal demo](assets/demo.gif)](https://dotgibson.github.io/dotfiles-web)
 
 ## The boundary
 
