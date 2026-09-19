@@ -59,8 +59,11 @@
   #   yq-go      — mikefarah's Go yq, which is what Core's aliases expect. Plain `yq` in
   #                nixpkgs is kislyuk's Python one. Same split core/PORTING-MATRIX.md
   #                footnotes for every other archive.
-  #   du-dust    — installs the `dust` binary.
-  #   git-delta  — installs `delta`.
+  #   dust       — Fedora's RPM is `du-dust`; nixpkgs names it after the binary (26.05
+  #                dropped the `du-dust` alias, so the RPM name no longer evaluates there).
+  #   delta      — Fedora's RPM is `git-delta`; nixpkgs has never had that attribute, only
+  #                `delta`. Neither name is checked by `make test`, which parses and does
+  #                not evaluate — a home-manager build is what catches it.
   #   fd         — nixpkgs calls it `fd` (Fedora's is `fd-find`).
   #   nix-index  — NOT cosmetic. os/nixos.capabilities declares
   #                PKG_OWNS=nix-locate --top-level, and nix-locate ships here. Without
@@ -75,7 +78,7 @@
     # the prompt and history
     starship atuin
     # the modern-CLI core
-    eza bat fd ripgrep zoxide fzf git-delta btop tealdeer duf procs du-dust
+    eza bat fd ripgrep zoxide fzf delta btop tealdeer duf procs dust
     jq yq-go glow gum
     # vcs
     git jujutsu lazygit
