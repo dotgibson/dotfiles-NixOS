@@ -74,10 +74,33 @@ bootstrap_check() {
   else
     blib_say "home-manager not on PATH — see nix/README.md (the NixOS module needs no CLI)"
   fi
-  if [[ -e "$HOME/.nix-profile" ]]; then
-    blib_ok "a nix user profile exists (~/.nix-profile)"
+  # WHERE THE PACKAGE SET LANDS depends on how nix/home.nix was applied, and NixOS puts
+  # every one of these on PATH, so the probe has to know all three (#9):
+  #   ~/.nix-profile                  standalone home-manager, or the NixOS module without
+  #                                   home-manager.useUserPackages
+  #   $XDG_STATE_HOME/nix/profile     the same, on a box with nix.settings.use-xdg-base-directories
+  #   /etc/profiles/per-user/$USER    the NixOS module with useUserPackages = true — the
+  #                                   layout where ~/.nix-profile never exists at all, which
+  #                                   is what this probe used to look for. Measured on a
+  #                                   NixOS-WSL 26.05 host installed per nix/README.md.
+  # Independently of the layout, home-manager leaves a gcroot at
+  # $XDG_STATE_HOME/home-manager/gcroots/current-home on every activation, module or
+  # standalone — the one marker that says "nix/home.nix has been applied" regardless of
+  # where its packages went.
+  local _state="${XDG_STATE_HOME:-$HOME/.local/state}" _p _profile=""
+  for _p in "$HOME/.nix-profile" "$_state/nix/profile" "/etc/profiles/per-user/${USER:-$(id -un)}"; do
+    if [[ -d "$_p/bin" ]]; then
+      _profile="$_p"
+      break
+    fi
+  done
+  if [[ -n "$_profile" ]]; then
+    blib_ok "nix user profile: ${_profile/#"$HOME"/\~}"
   else
-    blib_say "no ~/.nix-profile yet — apply nix/home.nix to get the package set"
+    blib_say "no nix user profile yet (~/.nix-profile, ~/.local/state/nix/profile or /etc/profiles/per-user/${USER:-$(id -un)}) — apply nix/home.nix to get the package set"
+  fi
+  if [[ -e "$_state/home-manager/gcroots/current-home" ]]; then
+    blib_ok "home-manager generation active (nix/home.nix has been applied)"
   fi
 }
 
