@@ -53,7 +53,7 @@
   # ── packages ────────────────────────────────────────────────────────────────
   # This is the half of the boundary that replaces install/packages.txt: there is no such
   # file in this repo, and `make packages-check` is a stub by design. The set mirrors
-  # dotfiles-Fedora's 38 names, translated to nixpkgs attributes.
+  # dotfiles-Fedora's package list, translated to nixpkgs attributes.
   #
   # Notes where the attribute is NOT the obvious name:
   #   yq-go      — mikefarah's Go yq, which is what Core's aliases expect. Plain `yq` in
@@ -79,7 +79,7 @@
     starship atuin
     # the modern-CLI core
     eza bat fd ripgrep zoxide fzf delta btop tealdeer duf procs dust
-    jq yq-go glow gum
+    jq jc yq-go glow gum
     # vcs
     git jujutsu lazygit
     # session + files + runtimes
