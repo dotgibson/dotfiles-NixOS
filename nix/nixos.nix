@@ -52,6 +52,13 @@ in
   # wires the config home-manager's package set then fills in.
   environment.systemPackages = with pkgs; [ git zsh ];
 
+  # ── unfree: exactly one package ─────────────────────────────────────────────
+  # nix/home.nix installs `op` (_1password-cli), which is unfree. With home-manager as a
+  # NixOS module and useGlobalPkgs = true, THIS nixpkgs config governs home.packages too.
+  # It is a predicate rather than allowUnfree = true so nothing else slips in. Don't want
+  # `op`? Delete this and its line in home.nix together.
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "1password-cli" ];
+
   # ── deliberately commented: the auto-upgrade ────────────────────────────────
   # This is why os/nixos.capabilities declares NO MAINT_UNATTENDED_UPGRADE. NixOS has a
   # first-class unattended upgrader and Core's maint runner must not run a second one
