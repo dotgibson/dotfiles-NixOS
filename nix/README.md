@@ -4,7 +4,7 @@ Two importable modules and one rule.
 
 | File | Scope | Owns |
 | ---- | ----- | ---- |
-| [`nixos.nix`](nixos.nix) | system | `programs.zsh.enable`, the `users.users.<you>.shell` declaration, the two packages needed before home-manager runs |
+| [`nixos.nix`](nixos.nix) | system | `programs.zsh.enable`, the `users.users.<you>.shell` declaration, `programs.nix-ld.enable` (so prebuilt/mise binaries run), the two packages needed before home-manager runs |
 | [`home.nix`](home.nix) | home-manager | every package, `PATH`, tpm |
 
 Everything else — every symlink, and the zsh entry — belongs to
