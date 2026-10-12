@@ -27,11 +27,16 @@ ok() { printf '  ok   %s\n' "$*"; }
 bad() { printf '  FAIL %s\n' "$*" >&2; rc=1; }
 
 # ── 1. --dry-run touches nothing ─────────────────────────────────────────────
-# HOME and XDG_CONFIG_HOME are BOTH pinned under the sandbox on every run: the driver
-# honours an exported XDG_CONFIG_HOME (as it should), so a suite that redirected only
-# HOME would wire the caller's real config dir on a box that exports it — CI runners do.
+# HOME, XDG_CONFIG_HOME and ZDOTDIR are ALL pinned under the sandbox on every run: the
+# driver honours an exported XDG_CONFIG_HOME (as it should), so a suite that redirected
+# only HOME would wire the caller's real config dir on a box that exports it — CI runners
+# do. ZDOTDIR is the same trap one level down: _blib_seed_zdotdir_rc seeds
+# ${ZDOTDIR:-$XDG_CONFIG_HOME/zsh}/.zshrc, and every shell this repo sets up exports
+# ZDOTDIR. Unpinned, `make test` from such a shell relinked the caller's REAL
+# $ZDOTDIR/.zshrc into this sandbox, which the EXIT trap then deleted, leaving the
+# login shell with a dangling entry file (measured on a NixOS box, 2026-10-12).
 mkdir -p "$tmp/dry"
-if ! HOME="$tmp/dry" XDG_CONFIG_HOME="$tmp/dry/.config" ./bootstrap.sh --dry-run >"$tmp/dry.out" 2>&1; then
+if ! HOME="$tmp/dry" XDG_CONFIG_HOME="$tmp/dry/.config" ZDOTDIR="$tmp/dry/.config/zsh" ./bootstrap.sh --dry-run >"$tmp/dry.out" 2>&1; then
   bad "bootstrap.sh --dry-run exited non-zero: $(cat "$tmp/dry.out")"
 fi
 # `ls -A`, not `find -quit`: BSD find on macOS lacks -quit, and a failing find would
@@ -56,7 +61,7 @@ mkdir -p "$tmp/home"
 # into ~/.config/tmux/plugins when it is absent). This suite tests links, not GitHub —
 # and it must pass offline and never leave a clone behind — so a placeholder stands in.
 mkdir -p "$tmp/home/.config/tmux/plugins/tpm"
-if ! HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" ./bootstrap.sh --links-only >"$tmp/run1.out" 2>&1; then
+if ! HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" ZDOTDIR="$tmp/home/.config/zsh" ./bootstrap.sh --links-only >"$tmp/run1.out" 2>&1; then
   bad "bootstrap.sh exited non-zero: $(cat "$tmp/run1.out")"
 fi
 CFG="$tmp/home/.config"
@@ -169,7 +174,7 @@ done
 before="$(snapshot "$tmp/home")"
 : >"$tmp/stamp"
 sleep 1
-if ! HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" MUT_LOG="$tmp/mutations.log" PATH="$tmp/shim:$PATH" ./bootstrap.sh --links-only >"$tmp/run2.out" 2>&1; then
+if ! HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/home/.config" ZDOTDIR="$tmp/home/.config/zsh" MUT_LOG="$tmp/mutations.log" PATH="$tmp/shim:$PATH" ./bootstrap.sh --links-only >"$tmp/run2.out" 2>&1; then
   bad "second bootstrap.sh run exited non-zero: $(cat "$tmp/run2.out")"
 fi
 after="$(snapshot "$tmp/home")"
