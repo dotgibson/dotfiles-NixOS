@@ -49,6 +49,11 @@
   # explicit edit, and `lib.mkDefault` still needs a value to hand you.
   # home.username = "you";
   # home.homeDirectory = "/home/you";
+  #
+  # And this one, for `op`. It is commented because under the NixOS module
+  # (useGlobalPkgs = true) home-manager rejects any nixpkgs.* option here, so the system's
+  # allow in nix/nixos.nix is the one that applies there.
+  # nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "1password-cli" ];
 
   # ── packages ────────────────────────────────────────────────────────────────
   # This is the half of the boundary that replaces install/packages.txt: there is no such
@@ -65,6 +70,11 @@
   #                `delta`. Neither name is checked by `make test`, which parses and does
   #                not evaluate — a home-manager build is what catches it.
   #   fd         — nixpkgs calls it `fd` (Fedora's is `fd-find`).
+  #   difftastic — the package; the binary, and the name core-doctor probes, is `difft`.
+  #   _1password-cli
+  #              — the binary is `op`. The underscore is there because a Nix identifier
+  #                cannot start with a digit. UNFREE: nix/nixos.nix allows exactly this one
+  #                package, and standalone users uncomment the matching line below.
   #   nix-index  — NOT cosmetic. os/nixos.capabilities declares
   #                PKG_OWNS=nix-locate --top-level, and nix-locate ships here. Without
   #                this line that declaration is a promise the box cannot keep.
@@ -78,8 +88,14 @@
     # the prompt and history
     starship atuin
     # the modern-CLI core
-    eza bat fd ripgrep zoxide fzf delta btop tealdeer duf procs dust
-    jq jc yq-go glow gum
+    eza bat fd ripgrep zoxide fzf delta btop tealdeer duf procs dust sd viddy
+    jq jc yq-go gron glow gum
+    # net
+    xh doggo
+    # code + Python tooling
+    ast-grep difftastic uv
+    # secrets (unfree — see the note above)
+    _1password-cli
     # vcs
     git jujutsu lazygit
     # session + files + runtimes

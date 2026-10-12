@@ -54,6 +54,13 @@ in
   # wires the config home-manager's package set then fills in.
   environment.systemPackages = with pkgs; [ git zsh ];
 
+  # ── unfree: exactly one package ─────────────────────────────────────────────
+  # nix/home.nix installs `op` (_1password-cli), which is unfree. With home-manager as a
+  # NixOS module and useGlobalPkgs = true, THIS nixpkgs config governs home.packages too.
+  # It is a predicate rather than allowUnfree = true so nothing else slips in. Don't want
+  # `op`? Delete this and its line in home.nix together.
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [ "1password-cli" ];
+
   # ── foreign binaries: nix-ld ────────────────────────────────────────────────
   # NixOS ships stub-ld at /lib64/ld-linux-x86-64.so.2, which refuses every prebuilt,
   # dynamically-linked binary. mise's runtimes, the Claude Code remote CLI and anything
