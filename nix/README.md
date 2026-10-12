@@ -4,7 +4,7 @@ Two importable modules and one rule.
 
 | File | Scope | Owns |
 | ---- | ----- | ---- |
-| [`nixos.nix`](nixos.nix) | system | `programs.zsh.enable`, the `users.users.<you>.shell` declaration, `programs.nix-ld.enable` (so prebuilt/mise binaries run), the two packages needed before home-manager runs |
+| [`nixos.nix`](nixos.nix) | system | `programs.zsh.enable`, the `users.users.<you>.shell` declaration, `programs.nix-ld.enable` (so prebuilt/mise binaries run), the one-package unfree allow for `op`, the two packages needed before home-manager runs |
 | [`home.nix`](home.nix) | home-manager | every package, `PATH`, tpm |
 
 Everything else — every symlink, and the zsh entry — belongs to
@@ -76,7 +76,13 @@ home-manager.useGlobalPkgs = true;
 home-manager.users.you = import /home/you/dotfiles-NixOS/nix/home.nix;
 ```
 
-**Standalone** — uncomment the two placeholder lines at the top of `home.nix` first. Note
+**Standalone** — uncomment the three commented lines at the top of `home.nix` first: the
+`home.username` and `home.homeDirectory` placeholders, and the
+`nixpkgs.config.allowUnfreePredicate` line. `home.packages` installs `op`
+(`_1password-cli`), which is unfree. Under the NixOS module the allow in `nixos.nix`
+covers it, but a standalone home-manager has no system config, so without that line it
+refuses the package and the whole switch fails. The line is commented by default
+because home-manager rejects `nixpkgs.*` options under `useGlobalPkgs`. Note
 that `home.nix` carries `programs.home-manager.enable = true` because a standalone first
 `switch` replaces the user profile and takes the `home-manager` binary with it otherwise
 (measured).
