@@ -12,7 +12,7 @@ Everything else — every symlink, and the zsh entry — belongs to
 
 ## The rule
 
-> `nix/` owns **packages, PATH, tpm and the login-shell declaration**.
+> `nix/` owns **packages, PATH, tpm, nix-ld and the login-shell declaration**.
 > `bootstrap.sh` owns **every link and the zsh entry**.
 > `home.nix` declares no `home.file`, no `programs.zsh`, and exactly one `xdg.configFile`.
 

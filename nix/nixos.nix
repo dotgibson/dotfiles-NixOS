@@ -26,7 +26,7 @@
 #   · programs.nix-ld.enable — the dynamic loader prebuilt binaries (mise's runtimes, the
 #     Claude Code remote CLI) need. The loader at /lib64 is system state; see below.
 #
-# The boundary is in nix/README.md. Short version: nix/ owns packages, PATH, tpm and the
+# The boundary is in nix/README.md. Short version: nix/ owns packages, PATH, tpm, nix-ld and the
 # login shell; bootstrap.sh owns every link and the zsh entry.
 { config, pkgs, lib, ... }:
 
