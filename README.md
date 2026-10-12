@@ -36,7 +36,7 @@ Here, `nix/` owns part of it — and the split is exact:
 
 | | owns |
 | --- | --- |
-| [`nix/`](nix/) (`nixos.nix`, `home.nix`) | packages · `PATH` · tpm · the login-shell **declaration** |
+| [`nix/`](nix/) (`nixos.nix`, `home.nix`) | packages · `PATH` · tpm · the login-shell **declaration** · nix-ld |
 | [`bootstrap.sh`](bootstrap.sh) | **every link** · the zsh entry (`~/.zshrc`, `$ZDOTDIR/.zshrc`) |
 
 `home.nix` therefore declares **no `home.file`, no `programs.zsh`**, and exactly one
